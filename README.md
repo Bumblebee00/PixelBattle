@@ -6,4 +6,5 @@ This code generate a cool shot with HLS Unity compute shaders. It work as follow
 To try this on your pc open a new Unity project, insert a compute shader and a c# script. Then attach the c# script to the main camera and assign the compute shader to the "Battleshader" public variable in the inspector. Optimal settings are:
 
 Render Texture Dimensions: 1024, 1024
+
 Grid Size: 1000
