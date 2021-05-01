@@ -1,0 +1,84 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+float2 _Pixel;
+float _Seed;
+
+float rand()
+{
+    float result = frac(sin(_Seed / 100.0f * dot(_Pixel, float2(12.9898f, 78.233f))) * 43758.5453f);
+    _Seed += 1.0f;
+    return result;
+}
+
+struct Square
+{
+    float2 position;
+    float color;
+};
+
+Square CreateSquare(float2 pos, float color){
+    Square square;
+    square.position = pos;
+    square.color = color;
+    return square;
+}
+RWStructuredBuffer<Square> squares;
+RWStructuredBuffer<Square> newBattlefield;
+
+
+float color0r, color0g, color0b;
+float color1r, color1g, color1b;
+
+int gridSize;
+float width, height;
+RWTexture2D<float4> Result;
+
+[numthreads(32,32,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // random function needs it
+    _Pixel = id.xy;
+    //--------------------------------------
+    //display squares
+    //--------------------------------------
+    float pixelpersquare = width / gridSize;
+    int currentSquareIndex = int(id.x/pixelpersquare) + gridSize * int(id.y/pixelpersquare);
+    Square currentsquare = squares[currentSquareIndex];
+    
+    if (currentsquare.color == 0.0){
+        Result[id.xy] = float4(color0r, color0g, color0b, 0.0);
+	} else {
+        Result[id.xy] = float4(color1r, color1g, color1b, 0.0);
+	}
+
+    //--------------------------------------
+    // update battlefield
+    //--------------------------------------
+    float changeProbability = 0.0;
+    // accumulate all the colors of neighboring squares, 
+    // since there are 8 neighbours each one weights 1/8 (probability between 0 and 1)
+    
+    // three on top (y+1, x-1 to x+1)
+    for (int i = -1; i < 2; i++)
+    {
+        changeProbability += (squares[(int(id.x/pixelpersquare) + i) + gridSize * (int(id.y/pixelpersquare) + 1)].color) / 8;
+    }
+    // three at bottom (y-1, x-1 to x+1)
+    for (int i = -1; i < 2; i++)
+    {
+        changeProbability += (squares[(int(id.x/pixelpersquare) + i) + gridSize * (int(id.y/pixelpersquare) - 1)].color) / 8;
+    }
+    //right and left
+    changeProbability += (squares[(int(id.x/pixelpersquare) + 1) + gridSize * int(id.y/pixelpersquare)].color) / 8;
+    changeProbability += (squares[(int(id.x/pixelpersquare) - 1) + gridSize * int(id.y/pixelpersquare)].color) / 8;
+
+    // change probability if the square is black (1.0)
+    if (currentsquare.color == 1.0){
+       changeProbability = 1 - changeProbability;
+	}
+    // randomly changhe color, with changeProbability
+    if (changeProbability > rand()){
+        newBattlefield[currentSquareIndex] = CreateSquare(currentSquareIndex, 1 - currentsquare.color);
+	}
+}
